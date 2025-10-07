@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(express.json());
-app.use(cors());
+app.use(cors({ origin: 'https://reservapp-b22b8.web.app' }));
 
 // Configura el Access Token de MercadoPago desde las variables de entorno
 // Deberás configurar esta variable en el dashboard de Render
