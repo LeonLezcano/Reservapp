@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Function to check if the requester is an admin
+    function isAdmin() {
+      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // Users can read/write their own doc. Admins can read any user doc.
+    match /users/{userId} {
+      allow read: if (request.auth != null && request.auth.uid == userId) || isAdmin();
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Anyone authenticated can read treatments
+    match /tratamientos/{tratamientoId} {
+      allow read: if request.auth != null;
+    }
+
+    // Anyone authenticated can read products
+    match /productos/{productoId} {
+      allow read: if request.auth != null;
+    }
+
+    // Admins can read all reservations.
+    // Users can create for themselves.
+    // Users can read reservations (for checking availability).
+    match /reservas/{reservaId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // Users can manage their own shopping cart
+    match /carritos/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Admins can read all orders. Users can create their own.
+    match /pedidos/{pedidoId} {
+      allow read: if isAdmin();
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+  }
+}
