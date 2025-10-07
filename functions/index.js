@@ -9,7 +9,21 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(express.json());
-app.use(cors({ origin: 'https://reservapp-b22b8.web.app' }));
+
+// Configuración de CORS más robusta
+const whitelist = ['https://reservapp-b22b8.web.app'];
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (whitelist.indexOf(origin) !== -1 || !origin) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  }
+};
+
+// Habilitar pre-flight para todas las rutas y luego aplicar CORS
+app.use(cors(corsOptions));
 
 // Configura el Access Token de MercadoPago desde las variables de entorno
 // Deberás configurar esta variable en el dashboard de Render
