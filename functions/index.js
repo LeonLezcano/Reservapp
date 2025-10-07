@@ -1,5 +1,5 @@
 const express = require("express");
-const mercadopago = require("mercadopago");
+const { MercadoPagoConfig, Preference } = require("mercadopago");
 const cors = require("cors");
 
 const app = express();
@@ -21,61 +21,62 @@ const corsOptions = {
     }
   }
 };
-
-// Habilitar pre-flight para todas las rutas y luego aplicar CORS
 app.use(cors(corsOptions));
 
 // Configura el Access Token de MercadoPago desde las variables de entorno
-// Deberás configurar esta variable en el dashboard de Render
-const MERCADOPAGO_ACCESS_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN;
+const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
 
-if (!MERCADOPAGO_ACCESS_TOKEN) {
+if (!accessToken) {
   console.error("Error: MERCADOPAGO_ACCESS_TOKEN no está configurado.");
-  // En un entorno de producción real, podrías querer que el servidor no inicie.
-} else {
-  mercadopago.configure({
-    access_token: MERCADOPAGO_ACCESS_TOKEN,
-  });
+  // En un entorno de producción real, el servidor no debería iniciar sin esto.
 }
 
-app.post("/create_preference", (req, res) => {
-  if (!MERCADOPAGO_ACCESS_TOKEN) {
+// 1. Inicializa el cliente de MercadoPago con la nueva sintaxis (v2)
+const client = new MercadoPagoConfig({ accessToken });
+
+app.post("/create_preference", async (req, res) => {
+  if (!accessToken) {
     return res.status(500).send("El servidor no está configurado para procesar pagos.");
   }
 
-  const { tratamiento, fecha, hora } = req.body;
+  try {
+    const { tratamiento, fecha, hora } = req.body;
 
-  if (!tratamiento || !fecha || !hora) {
-    return res.status(400).send("Faltan datos para la reserva.");
-  }
+    if (!tratamiento || !fecha || !hora) {
+      return res.status(400).send("Faltan datos para la reserva.");
+    }
 
-  const preference = {
-    items: [
-      {
-        title: `Reserva: ${tratamiento.nombre}`,
-        description: `Turno para el ${fecha} a las ${hora}`,
-        unit_price: Number(tratamiento.precio),
-        quantity: 1,
+    const body = {
+      items: [
+        {
+          title: `Reserva: ${tratamiento.nombre}`,
+          description: `Turno para el ${fecha} a las ${hora}`,
+          unit_price: Number(tratamiento.precio),
+          quantity: 1,
+        },
+      ],
+      back_urls: {
+        // TODO: Reemplaza estas URLs con las de tu sitio deployado en Firebase Hosting
+        success: "https://reservapp-b22b8.web.app/pago-exitoso.html",
+        failure: "https://reservapp-b22b8.web.app/pago-fallido.html",
+        pending: "https://reservapp-b22b8.web.app/pago-pendiente.html",
       },
-    ],
-    back_urls: {
-      // TODO: Reemplaza estas URLs con las de tu sitio deployado en Firebase Hosting
-      success: "https://<TU_PROYECTO>.web.app/pago-exitoso.html",
-      failure: "https://<TU_PROYECTO>.web.app/pago-fallido.html",
-      pending: "https://<TU_PROYECTO>.web.app/pago-pendiente.html",
-    },
-    auto_return: "approved",
-  };
+      auto_return: "approved",
+    };
 
-  mercadopago.preferences
-    .create(preference)
-    .then(function (response) {
-      res.json({ id: response.body.id, init_point: response.body.init_point });
-    })
-    .catch(function (error) {
-      console.log(error);
-      res.status(500).send("Error al crear la preferencia de pago.");
+    // 2. Crea la preferencia usando una instancia de Preference
+    const preference = new Preference(client);
+    const result = await preference.create({ body });
+
+    res.json({
+      id: result.id,
+      init_point: result.init_point,
     });
+
+  } catch (error) {
+    console.log(error);
+    res.status(500).send("Error al crear la preferencia de pago.");
+  }
 });
 
 app.listen(PORT, () => {
