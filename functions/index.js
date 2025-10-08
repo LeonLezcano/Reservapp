@@ -40,17 +40,20 @@ app.post("/create_preference", async (req, res) => {
   }
 
   try {
-    const { tratamiento, fecha, hora } = req.body;
+    const { tratamiento, fecha, hora, descripcion_extra } = req.body;
 
     if (!tratamiento || !fecha || !hora) {
       return res.status(400).send("Faltan datos para la reserva.");
     }
 
+    // Construir una descripción detallada
+    const descripcionCompleta = `Turno para el ${fecha} a las ${hora}. Detalles: ${descripcion_extra || ''}`;
+
     const body = {
       items: [
         {
           title: `Reserva: ${tratamiento.nombre}`,
-          description: `Turno para el ${fecha} a las ${hora}`,
+          description: descripcionCompleta,
           unit_price: Number(tratamiento.precio),
           quantity: 1,
         },
